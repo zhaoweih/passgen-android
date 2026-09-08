@@ -1,0 +1,31 @@
+<resources>
+    <string name="app_name">Password Generator</string>
+
+    <string name="title_line_one">Password</string>
+    <string name="title_line_two">generator</string>
+    <string name="switch_to_dark_theme">Switch to dark theme</string>
+    <string name="switch_to_light_theme">Switch to light theme</string>
+
+    <string name="generated_password">Generated password</string>
+    <string name="strength_weak">Weak</string>
+    <string name="strength_fair">Fair</string>
+    <string name="strength_strong">Strong</string>
+    <string name="strength_very_strong">Very strong</string>
+    <!-- %1$s is a duration such as "3 days"; %2$d is the number of bits of entropy. -->
+    <string name="crack_time_line">Takes about %1$s to crack · %2$d bits of entropy</string>
+    <string name="copy_password">Copy password</string>
+    <string name="copied">Copied ✓</string>
+    <string name="regenerate">Generate a new password</string>
+
+    <string name="length">Length</string>
+    <string name="password_length">Password length</string>
+
+    <string name="option_uppercase">Uppercase</string>
+    <string name="option_lowercase">Lowercase</string>
+    <string name="option_numbers">Numbers</string>
+    <string name="option_symbols">Symbols</string>
+    <string name="option_avoid_look_alikes">Avoid look-alikes</string>
+
+    <string name="no_internet_permission">No internet permission</string>
+    <string name="no_internet_permission_detail">This app has no network access. Every password is generated and stored entirely on your phone — nothing ever leaves the device.</string>
+</resources>

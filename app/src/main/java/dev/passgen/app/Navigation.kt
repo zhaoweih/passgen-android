@@ -1,0 +1,21 @@
+package dev.passgen.app
+
+import androidx.compose.runtime.Composable
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
+import dev.passgen.app.ui.main.MainScreen
+
+@Composable
+fun MainNavigation(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
+  val backStack = rememberNavBackStack(Main)
+
+  NavDisplay(
+    backStack = backStack,
+    onBack = { backStack.removeLastOrNull() },
+    entryProvider =
+      entryProvider {
+        entry<Main> { MainScreen(isDarkTheme = isDarkTheme, onToggleTheme = onToggleTheme) }
+      },
+  )
+}

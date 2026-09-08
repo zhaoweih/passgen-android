@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches AppColors.pageBg so the window never flashes a different colour on launch. -->
+    <color name="page_bg">#FAF9F5</color>
+</resources>
