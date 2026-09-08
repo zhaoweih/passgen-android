@@ -14,3 +14,11 @@
 .cxx
 local.properties
 .kotlin
+
+# 签名密钥与口令 —— 绝不入库
+*.jks
+*.keystore
+keystore.properties
+
+# 构建产物走 GitHub Release，不入库
+/release/
