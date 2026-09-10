@@ -6,6 +6,8 @@
 
 一个完全离线的 Android 随机密码生成器。用 Kotlin + Jetpack Compose 编写，不申请任何权限（包括 `INTERNET`），密码在本机生成、在本机停留。
 
+> **🤖 本项目 100% 由 AI 编写。** 应用代码、单元测试、视觉设计、商店素材与这份 README，全部由 Claude 生成，人类只负责提出需求和验收。详见 [关于「全部由 AI 编写」](#关于全部由-ai-编写)。
+
 ---
 
 ## 产品介绍
@@ -108,6 +110,24 @@ keyPassword=…
 ```
 
 文件不存在时 release 构建会输出未签名包，因此全新 clone 和 CI 都能直接跑通。
+
+---
+
+## 关于「全部由 AI 编写」
+
+这个仓库里没有一行手写代码。从空目录到可上架的签名包，每一步都由 [Claude](https://claude.com/claude-code) 完成：
+
+| 产出 | 说明 |
+| --- | --- |
+| 应用代码 | `PasswordGenerator.kt` 的生成与熵计算、Compose 界面、`ViewModel` 状态流、主题配色，全部由 AI 编写 |
+| 测试 | `PasswordGeneratorTest`、`MainScreenViewModelTest` 单元测试与 `MainScreenTest` 仪器化测试同样由 AI 编写 |
+| 视觉设计 | 界面稿、应用图标、Google Play 特色图与四张商店截图，在 [Claude Design](https://claude.ai/design/p/c7e5da90-9ca3-4e0e-9a4a-eefa9653114c?file=Play+Store+Assets.dc.html) 中生成 |
+| 工程配置 | Gradle 脚本、版本目录、签名配置、`.gitignore` |
+| 文档 | 这份 README，以及每一条 commit message |
+
+人类在整个过程中只做两件事：**提需求**和**验收**——决定要做什么、看结果对不对、指出哪里要改。具体怎么实现、用什么架构、界面长什么样，都是 AI 的判断。
+
+这也意味着一句必要的提醒：**代码没有经过人工逐行审查。** 密码生成用的是 `java.security.SecureRandom`，熵与破解耗时的公式写在上一节里、可以自行核对，但如果你要把它用在高风险场景，请先自己读一遍 `app/src/main/java/dev/passgen/app/data/PasswordGenerator.kt`——它只有一百多行。
 
 ---
 
