@@ -1,281 +1,281 @@
-# 随机密码生成器 · 产品需求文档（PRD）
+# Password Generator — Product Requirements
 
-| 项目 | 内容 |
+| | |
 | --- | --- |
-| 产品名称 | Password Generator（`dev.passgen.app`） |
-| 平台 | Android，minSdk 24（Android 7.0），targetSdk / compileSdk 36 |
-| 当前版本 | 1.0（versionCode 1） |
-| 文档状态 | 依据 v1.0 已发布代码回溯撰写（as-built PRD） |
-| 最后更新 | 2026-09-10 |
+| Product | Password Generator (`dev.passgen.app`) |
+| Platform | Android — minSdk 24 (Android 7.0), targetSdk / compileSdk 36 |
+| Version | 1.0 (versionCode 1) |
+| Status | Written against the shipped v1.0 code (an as-built PRD) |
+| Last updated | 2026-09-10 |
 
-> 本文档描述的是**已实现的 v1.0 行为**，每一条需求都可在代码中找到对应实现，用于对齐产品认知、支撑后续迭代与回归测试。文末「已知问题」与「后续规划」为待决策项。
+> This document describes **what v1.0 actually does**. Every requirement below corresponds to something in the code, so it can be used to align on product behaviour, to plan the next iteration, and as a regression baseline. The known issues in §8.2 and the roadmap in §9 are the parts still open for a decision.
 
 ---
 
-## 1. 产品定位
+## 1. Positioning
 
-### 1.1 一句话定义
+### 1.1 In one sentence
 
-一个**完全离线**的 Android 随机密码生成器：打开即得一串强随机字符，密码在本机生成、在本机停留。
+A **fully offline** Android password generator: open it and you have a strong random string, generated on the phone and kept there.
 
-### 1.2 要解决的问题
+### 1.2 The problem
 
-密码管理器解决的是"保管"，但很多场景用户只需要**一串足够强的随机字符**：
+Password managers solve storage. Plenty of moments only call for **a strong string of random characters**:
 
-- 注册新账号时需要一个不重复的密码；
-- 重置路由器 / NAS / 打印机等设备的初始口令；
-- 临时给同事一份一次性凭据。
+- signing up for a new account and needing a password nobody else has;
+- resetting the default credential on a router, NAS or printer;
+- handing a colleague a one-off password.
 
-市面上同类工具普遍存在三个用户顾虑：需要联网、需要注册、无法验证密码是否真的没被上传。本产品用**不申请任何权限（含 `INTERNET`）**这一技术事实正面回答该顾虑，并在界面上明确告知用户。
+Comparable tools tend to raise the same three objections: they want a network connection, they want an account, and there is no way to check whether the password was uploaded. This product answers that by **declaring no permissions at all — `INTERNET` included** — and saying so on screen.
 
-### 1.3 目标用户
+### 1.3 Who it is for
 
-| 用户类型 | 特征 | 核心诉求 |
+| Audience | Characteristics | What they need |
 | --- | --- | --- |
-| 隐私敏感的普通用户 | 不信任云端密码工具 | 看得见的"不联网" |
-| 开发者 / 运维 | 频繁创建测试账号、设备口令 | 快、可调字符集、一键复制 |
-| 需要口述/手抄密码的人 | 电话告知、手写记录 | 排除形近字符 |
+| Privacy-minded general users | Distrust cloud password tools | A privacy claim they can verify |
+| Developers and ops | Create test accounts and device credentials often | Speed, adjustable character sets, one-tap copy |
+| Anyone reading a password aloud or writing it down | Dictating over the phone, copying by hand | Look-alike characters removed |
 
-### 1.4 设计原则
+### 1.4 Design principles
 
-1. **零输入即可用** —— 冷启动即生成一个可直接使用的密码，不需要任何配置。
-2. **可验证的隐私** —— 隐私承诺必须由技术约束（无权限声明）而非文案保证。
-3. **强度是算出来的** —— 展示香农熵与破解时长，不使用"弱/中/强"的主观拍脑袋规则。
-4. **单屏完成** —— 全部功能在一屏内，无二级页面、无设置页、无引导页。
+1. **Useful with zero input.** A password is generated on cold start; nothing has to be configured first.
+2. **Verifiable privacy.** The privacy promise rests on a technical constraint — no declared permissions — not on copy.
+3. **Strength is computed, not asserted.** Shannon entropy and an estimated crack time, rather than a subjective weak/medium/strong rule.
+4. **One screen.** Everything fits on a single screen: no second page, no settings screen, no onboarding.
 
-### 1.5 非目标（明确不做）
+### 1.5 Explicit non-goals
 
-- 不做密码保管、不做密码库、不做自动填充（AutofillService）；
-- 不做账号体系、云同步、跨设备；
-- 不做埋点、崩溃上报、广告、内购；
-- 不做密码历史记录（见 §8.1 的取舍说明）；
-- 不做口令短语（passphrase / 词表）生成。
+- No password storage, no vault, no autofill service;
+- No accounts, no cloud sync, no cross-device anything;
+- No analytics, no crash reporting, no ads, no in-app purchases;
+- No password history (see the trade-off in §8.1);
+- No passphrase / word-list generation.
 
 ---
 
-## 2. 功能范围总览
+## 2. Scope
 
-单屏（`MainScreen`）自上而下由五个区块构成：
+A single screen (`MainScreen`) made of five regions, top to bottom:
 
-| # | 区块 | 组件 | 功能 |
+| # | Region | Components | Purpose |
 | --- | --- | --- | --- |
-| 1 | 标题栏 Header | 标题 + 主题按钮 | 明暗主题切换 |
-| 2 | 密码卡片 PasswordCard | 密码文本、强度条、说明行、复制/刷新按钮 | 展示密码与强度、复制、重新生成 |
-| 3 | 长度区 LengthSection | 自定义滑块 + 数值 | 6–48 位长度调节 |
-| 4 | 选项卡片 OptionsCard | 5 个开关行 | 字符集开关 + 排除形近字符 |
-| 5 | 隐私说明 PrivacyNote | 静态说明块 | 告知无网络权限 |
+| 1 | Header | Title, theme button | Switch between light and dark |
+| 2 | Password card | Password text, strength meter, detail line, copy / refresh buttons | Show the password and its strength; copy; regenerate |
+| 3 | Length section | Custom slider, current value | Adjust length between 6 and 48 |
+| 4 | Options card | Five toggle rows | Character sets, and dropping look-alikes |
+| 5 | Privacy note | Static block | State that the app has no network access |
 
-导航层（Navigation 3）当前只注册了唯一路由 `Main`，为后续新增页面预留结构。
+The navigation layer (Navigation 3) currently registers a single route, `Main`, leaving the structure in place for later screens.
 
 ---
 
-## 3. 功能需求
+## 3. Functional requirements
 
-### FR-1 密码生成
+### FR-1 Generation
 
-| 编号 | 需求 |
+| ID | Requirement |
 | --- | --- |
-| FR-1.1 | 随机源必须为 `java.security.SecureRandom`（密码学安全）。禁止使用 `Math.random()`、时间戳种子或任何可预测来源。 |
-| FR-1.2 | 密码按"逐位独立均匀采样"生成：对目标长度重复 `pool[random.nextInt(pool.length)]`。 |
-| FR-1.3 | 冷启动时自动生成一个密码，**不播放**洗牌动画，用户打开即可复制。 |
-| FR-1.4 | 以下操作触发重新生成：点击刷新按钮（**播放**动画）、调整长度（不播放）、切换任一字符集开关（不播放）。 |
-| FR-1.5 | 每次生成互相独立，不复用历史结果、不做去重记忆。 |
+| FR-1.1 | The randomness source must be `java.security.SecureRandom`. `Math.random()`, timestamp seeds and any other predictable source are prohibited. |
+| FR-1.2 | Passwords are sampled position by position, independently and uniformly: `pool[random.nextInt(pool.length)]`, repeated to the target length. |
+| FR-1.3 | A password is generated on cold start **without** the shuffle animation, so it is ready to copy the moment the app opens. |
+| FR-1.4 | Regeneration is triggered by: tapping refresh (**with** the animation), changing the length (without), and toggling any character set (without). |
+| FR-1.5 | Each generation is independent — nothing is recycled and no history is consulted for de-duplication. |
 
-### FR-2 字符集与字符池
+### FR-2 Character sets and the pool
 
-| 编号 | 需求 |
+| ID | Requirement |
 | --- | --- |
-| FR-2.1 | 提供四个可独立开关的字符集：<br>· 大写 `A–Z`（26）<br>· 小写 `a–z`（26）<br>· 数字 `0–9`（10）<br>· 符号 `!@#$%^&*()-_=+[]{};:,.?/`（24） |
-| FR-2.2 | 提供第五个开关"排除形近字符"（Avoid look-alikes）：从最终字符池中剔除 `l 1 I O 0 o B 8 S 5 Z 2` 共 12 个字符。 |
-| FR-2.3 | **兜底规则**：当四个字符集全部关闭时，字符池回退为小写字母，保证永远能生成合法密码，界面不出现空密码或报错。 |
-| FR-2.4 | 排除形近字符在字符集合并**之后**执行，因此它会同时作用于已启用的所有字符集（含兜底的小写集）。 |
-| FR-2.5 | 默认开启：大写、小写、数字、符号；默认关闭：排除形近字符。默认字符池大小 = 86。 |
+| FR-2.1 | Four independently switchable sets:<br>· uppercase `A–Z` (26)<br>· lowercase `a–z` (26)<br>· digits `0–9` (10)<br>· symbols `!@#$%^&*()-_=+[]{};:,.?/` (24) |
+| FR-2.2 | A fifth toggle, *Avoid look-alikes*, removes the twelve characters `l 1 I O 0 o B 8 S 5 Z 2` from the pool. |
+| FR-2.3 | **Fallback:** when all four sets are switched off the pool falls back to lowercase, so a valid password is always produced — no empty password, no error state. |
+| FR-2.4 | Look-alike filtering runs **after** the sets are merged, so it applies to every enabled set, including the lowercase fallback. |
+| FR-2.5 | Enabled by default: uppercase, lowercase, digits, symbols. Off by default: avoid look-alikes. The default pool is 86 characters. |
 
-字符池大小对照（用于验收）：
+Pool sizes, for verification:
 
-| 配置 | 池大小 | 20 位熵 | 强度档 |
+| Configuration | Pool | Entropy at 20 chars | Tier |
 | --- | --- | --- | --- |
-| 默认（四集全开，不排除形近） | 86 | 129 bits | Very strong |
-| 四集全开 + 排除形近 | 74 | 124 bits | Very strong |
-| 仅小写 | 26 | 94 bits | Very strong |
-| 全部关闭（触发兜底） | 26 | 94 bits | Very strong |
+| Default (all four sets, look-alikes kept) | 86 | 129 bits | Very strong |
+| All four sets, look-alikes dropped | 74 | 124 bits | Very strong |
+| Lowercase only | 26 | 94 bits | Very strong |
+| Everything off (fallback) | 26 | 94 bits | Very strong |
 
-### FR-3 长度调节
+### FR-3 Length
 
-| 编号 | 需求 |
+| ID | Requirement |
 | --- | --- |
-| FR-3.1 | 长度范围 6–48，默认 20。 |
-| FR-3.2 | 使用自定义滑块：支持**拖动**与**点击轨道任意位置**直接跳转，落点按比例四舍五入到整数。 |
-| FR-3.3 | 任何来源传入的长度都必须被钳制到 `[6, 48]`；长度未发生变化时不重新生成（避免拖动过程中重复生成）。 |
-| FR-3.4 | 当前长度以等宽字体大号展示在滑块右上，轨道两端标注 `6` 与 `48`。 |
+| FR-3.1 | Length ranges from 6 to 48; the default is 20. |
+| FR-3.2 | The slider is custom: it supports dragging and tapping anywhere on the track, with the landing position rounded to the nearest integer. |
+| FR-3.3 | Any incoming length is clamped to `[6, 48]`. If the value has not changed, no regeneration occurs — this is what keeps a drag from regenerating repeatedly. |
+| FR-3.4 | The current length appears in large monospace above the right end of the slider, with `6` and `48` marking the ends of the track. |
 
-### FR-4 强度评估
+### FR-4 Strength
 
-| 编号 | 需求 |
+| ID | Requirement |
 | --- | --- |
-| FR-4.1 | 熵按均匀随机串计算：`entropy = round(length × log2(poolSize))`，单位 bit。`length ≤ 0` 或 `poolSize ≤ 1` 时熵为 0。 |
-| FR-4.2 | 熵基于**当前设置下的字符池**计算，而非对已生成字符串做统计，因此调整长度或开关后强度即时更新。 |
-| FR-4.3 | 强度分四档：`< 45` Weak／`< 65` Fair／`< 90` Strong／`≥ 90` Very strong。 |
-| FR-4.4 | 强度条按档位填充 25% / 50% / 78% / 100%，颜色与档位绑定，宽度与颜色均带 300ms 过渡动画。 |
-| FR-4.5 | 破解时长假设攻击者以 10¹¹ 次/秒穷举一半密钥空间：`seconds = 2^(entropy − 1) / 1e11`。 |
-| FR-4.6 | 时长格式化规则：`< 1 秒` → "an instant"；`> 10 亿年` → "billions of years"；其余按 秒/分/时/天/月/年 逐级向上取最大适配单位，`< 10` 保留一位小数，`≥ 1000` 按本地化千分位整数展示。 |
-| FR-4.7 | 说明行文案：`Takes about {时长} to crack · {熵} bits of entropy`，其中时长部分加粗高亮。 |
+| FR-4.1 | Entropy is computed for a uniformly random string: `entropy = round(length × log2(poolSize))`, in bits. It is 0 when `length ≤ 0` or `poolSize ≤ 1`. |
+| FR-4.2 | Entropy is derived from **the pool implied by the current settings**, not from statistics over the generated string, so strength updates the instant a length or toggle changes. |
+| FR-4.3 | Four tiers: `< 45` Weak, `< 65` Fair, `< 90` Strong, `≥ 90` Very strong. |
+| FR-4.4 | The meter fills to 25% / 50% / 78% / 100% by tier, with a colour bound to the tier; both width and colour animate over 300 ms. |
+| FR-4.5 | Crack time assumes an attacker exhausting half the keyspace at 10¹¹ guesses per second: `seconds = 2^(entropy − 1) / 1e11`. |
+| FR-4.6 | Duration formatting: `< 1 second` renders as "an instant"; more than a billion years as "billions of years"; otherwise the largest fitting unit from seconds / minutes / hours / days / months / years, with one decimal place below 10 and locale-aware thousands separators at 1000 and above. |
+| FR-4.7 | The detail line reads `Takes about {duration} to crack · {bits} bits of entropy`, with the duration emphasised in bold. |
 
-### FR-5 复制
+### FR-5 Copying
 
-| 编号 | 需求 |
+| ID | Requirement |
 | --- | --- |
-| FR-5.1 | 点击复制按钮将**已定稿的密码**（非动画中间帧）写入系统剪贴板。 |
-| FR-5.2 | 剪贴板条目必须标记 `android.content.extra.IS_SENSITIVE`，使系统不在剪贴板预览/历史中明文展示密码（API 24+）。 |
-| FR-5.3 | 复制成功触发一次 `LongPress` 触感反馈。 |
-| FR-5.4 | 按钮文案切换为"Copied ✓"，1600ms 后自动恢复；重复点击时重置计时。 |
-| FR-5.5 | 密码为空时不写入剪贴板（防御性分支）。 |
-| FR-5.6 | 任何一次重新生成都会清除"已复制"状态，避免用户误以为新密码已被复制。 |
+| FR-5.1 | Copy writes the **settled** password to the system clipboard, never an intermediate animation frame. |
+| FR-5.2 | The clip must carry `android.content.extra.IS_SENSITIVE` so the system keeps the password out of clipboard previews and history (API 24+). |
+| FR-5.3 | A successful copy fires one `LongPress` haptic. |
+| FR-5.4 | The button label becomes "Copied ✓" and reverts after 1600 ms; tapping again restarts the timer. |
+| FR-5.5 | An empty password is never written to the clipboard (defensive branch). |
+| FR-5.6 | Any regeneration clears the copied state, so a new password is never mistaken for one already on the clipboard. |
 
-### FR-6 洗牌动画
+### FR-6 Shuffle animation
 
-| 编号 | 需求 |
+| ID | Requirement |
 | --- | --- |
-| FR-6.1 | 仅在用户主动点击刷新时播放，共 9 帧、每帧 34ms（约 306ms）。 |
-| FR-6.2 | 动画为"从左至右逐位定稿"：第 n 帧的前 `round(len × n/9)` 位显示最终字符，其余位显示随机干扰字符。 |
-| FR-6.3 | 干扰字符取自"当前字符池 + 全部符号"，使动画视觉上更有跳动感（不影响最终密码）。 |
-| FR-6.4 | 动画期间最终密码已经确定并存在于状态中；新的生成请求会取消上一次未完成的动画。 |
+| FR-6.1 | Plays only on an explicit refresh: 9 frames at 34 ms each, roughly 306 ms. |
+| FR-6.2 | The password settles left to right: on frame n the first `round(len × n/9)` characters are final and the rest are noise. |
+| FR-6.3 | Noise characters are drawn from the current pool plus all symbols, which gives the animation more visual movement without affecting the final password. |
+| FR-6.4 | The final password is already decided and held in state while the animation runs; a new generation cancels any animation still in flight. |
 
-### FR-7 主题
+### FR-7 Theming
 
-| 编号 | 需求 |
+| ID | Requirement |
 | --- | --- |
-| FR-7.1 | 默认跟随系统明暗设置。 |
-| FR-7.2 | 标题栏右侧按钮可手动覆盖为亮色或暗色，覆盖值在配置变更（旋转等）后保留。 |
-| FR-7.3 | 主题切换同步更新状态栏与导航栏样式，全屏 edge-to-edge 展示。 |
-| FR-7.4 | 密码文本按字符类别着色：字母、数字、符号各用一色，便于快速辨认串型。 |
+| FR-7.1 | Follows the system light/dark setting by default. |
+| FR-7.2 | The header button overrides it to light or dark, and the override survives configuration changes such as rotation. |
+| FR-7.3 | Switching themes updates the status and navigation bar styling; the app draws edge to edge. |
+| FR-7.4 | Password text is tinted by character class — letters, digits and symbols each get a colour — so the shape of the string is readable at a glance. |
 
-### FR-8 隐私说明
+### FR-8 Privacy note
 
-| 编号 | 需求 |
+| ID | Requirement |
 | --- | --- |
-| FR-8.1 | 底部常驻隐私说明块，文案："No internet permission — This app has no network access. Every password is generated and stored entirely on your phone — nothing ever leaves the device."。 |
-| FR-8.2 | 该文案必须与 `AndroidManifest.xml` 的实际权限声明保持一致；一旦未来引入任何权限，必须同步修改该文案。 |
+| FR-8.1 | A permanent note at the bottom of the screen reads: "No internet permission — This app has no network access. Every password is generated and stored entirely on your phone — nothing ever leaves the device." |
+| FR-8.2 | That copy must stay true to the permissions actually declared in `AndroidManifest.xml`. Introducing any permission requires changing it. |
 
 ---
 
-## 4. 状态与数据
+## 4. State and data
 
-### 4.1 UI 状态模型
+### 4.1 UI state
 
-`MainScreenUiState` 为唯一状态源（`ViewModel` + `StateFlow`，单向数据流）：
+`MainScreenUiState` is the single source of truth (`ViewModel` + `StateFlow`, unidirectional data flow):
 
-| 字段 | 类型 | 默认值 | 说明 |
+| Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `length` | Int | 20 | 当前长度 |
-| `options` | Set&lt;PasswordOption&gt; | 大写/小写/数字/符号 | 已启用选项 |
-| `password` | String | 生成值 | 已定稿密码 |
-| `scramble` | String? | null | 动画中间帧，定稿后为 null |
-| `poolSize` | Int | 86 | 本次生成所用池大小 |
-| `copied` | Boolean | false | 复制确认态 |
+| `length` | Int | 20 | Current length |
+| `options` | Set&lt;PasswordOption&gt; | upper / lower / digits / symbols | Enabled options |
+| `password` | String | generated | The settled password |
+| `scramble` | String? | null | Animation frame; null once settled |
+| `poolSize` | Int | 86 | Pool size used for this generation |
+| `copied` | Boolean | false | Copy confirmation state |
 
-派生字段：`displayedPassword`（`scramble ?: password`）、`entropy`、`strength`、`crackTime`。
+Derived: `displayedPassword` (`scramble ?: password`), `entropy`, `strength`, `crackTime`.
 
-### 4.2 数据存储
+### 4.2 Storage
 
-| 项 | 是否持久化 | 说明 |
+| Item | Persisted | Notes |
 | --- | --- | --- |
-| 生成的密码 | 否 | 仅存在于进程内存与用户主动粘贴之处 |
-| 长度 / 字符集设置 | 否 | 应用重启后回到默认值 |
-| 主题覆盖 | 仅进程内（`rememberSaveable`） | 冷启动回到跟随系统 |
-| 用户标识 / 埋点 | 无 | 不采集任何数据 |
+| Generated password | No | Lives in process memory and wherever the user deliberately pastes it |
+| Length and character sets | No | Return to defaults on a fresh launch |
+| Theme override | Process only (`rememberSaveable`) | Back to following the system on cold start |
+| Identifiers, analytics | None | Nothing is collected |
 
-无数据库、无 `SharedPreferences`、无文件写入、无网络请求。
+No database, no `SharedPreferences`, no file writes, no network calls.
 
 ---
 
-## 5. 非功能需求
+## 5. Non-functional requirements
 
-| 类别 | 要求 |
+| Area | Requirement |
 | --- | --- |
-| 权限 | `AndroidManifest.xml` **不得声明任何权限**，`INTERNET` 尤其禁止。此为产品的核心承诺，任何依赖引入需复核合并后的清单。 |
-| 安全 | 随机源仅限 `SecureRandom`；剪贴板条目须标记敏感；不打印密码日志。 |
-| 性能 | 冷启动到可用密码 < 1 帧渲染周期；长度拖动时的重复生成通过"值未变即返回"抑制。 |
-| 无障碍 | 密码文本、复制/刷新/主题按钮、长度滑块均提供 `contentDescription`；文案全部走 `strings.xml`，支持 RTL。 |
-| 兼容性 | Android 7.0+；`IS_SENSITIVE` 标记在 API 24 以下自动跳过（当前 minSdk 已为 24）。 |
-| 国际化 | 破解时长按 `Locale` 做数字格式化；界面文案目前仅英文，字符串资源已抽离，具备翻译条件。 |
-| 包体 | 无第三方 SDK，仅 AndroidX / Compose 依赖。 |
+| Permissions | `AndroidManifest.xml` must declare **no permissions**, and `INTERNET` in particular. This is the product's central promise; any new dependency requires re-checking the merged manifest. |
+| Security | `SecureRandom` only; clipboard entries flagged sensitive; passwords never logged. |
+| Performance | Cold start to a usable password within a frame; repeated generation during a drag is suppressed by the unchanged-value check. |
+| Accessibility | Content descriptions on the password text, the copy / refresh / theme buttons and the length slider; all copy lives in `strings.xml`; RTL supported. |
+| Compatibility | Android 7.0+. The `IS_SENSITIVE` flag is skipped below API 24 (minSdk is already 24). |
+| Internationalisation | Crack-time numbers are formatted per `Locale`. The UI is English-only today, but the strings are extracted and ready to translate. |
+| Size | No third-party SDKs; AndroidX and Compose only. |
 
 ---
 
-## 6. 技术方案约束
+## 6. Technical constraints
 
-| 维度 | 选型 |
+| | |
 | --- | --- |
-| 语言 | Kotlin（JVM toolchain 17） |
-| UI | Jetpack Compose + Material 3（Compose BOM） |
-| 架构 | `ViewModel` + `StateFlow`，单向数据流；`data/` 层为纯 Kotlin，可独立单测 |
-| 导航 | Navigation 3（当前单路由） |
-| 随机源 | `java.security.SecureRandom`，构造器可注入 `Random` 以便测试 |
-| 签名 | 从未入库的 `keystore.properties` 读取；缺失时产出未签名包，保证新克隆与 CI 可直接构建 |
+| Language | Kotlin (JVM toolchain 17) |
+| UI | Jetpack Compose + Material 3, via the Compose BOM |
+| Architecture | `ViewModel` + `StateFlow`, unidirectional data flow; the `data/` layer is plain Kotlin and unit-testable on its own |
+| Navigation | Navigation 3 (one route today) |
+| Randomness | `java.security.SecureRandom`, with an injectable `Random` for tests |
+| Signing | Read from an uncommitted `keystore.properties`; absent that, the release build produces unsigned output so a fresh clone and CI both build |
 
 ---
 
-## 7. 验收标准
+## 7. Acceptance
 
-### 7.1 已覆盖的自动化测试
+### 7.1 Automated coverage
 
-| 层 | 文件 | 覆盖点 |
+| Layer | File | Covers |
 | --- | --- | --- |
-| 生成逻辑单测 | `PasswordGeneratorTest` | 池按选项拼装、全关兜底、形近字符剔除、长度与池约束、两次生成不相同、熵公式、四档阈值边界、时长格式化边界 |
-| 状态单测 | `MainScreenViewModelTest` | 冷启动即有密码、改长度即重新生成、长度钳制、关闭选项后池与熵同时下降、强度随设置变化、动画最终定稿、复制确认自动消失 |
-| UI 仪器测试 | `MainScreenTest` | 密码/长度/选项渲染、复制与刷新点击回调、选项行回调、主题按钮回调 |
+| Generator unit tests | `PasswordGeneratorTest` | Pool assembly per option, the lowercase fallback, look-alike removal, length and pool constraints, two generations differing, the entropy formula, all four tier boundaries, duration formatting edges |
+| State unit tests | `MainScreenViewModelTest` | A password on cold start, regeneration on length change, clamping, pool and entropy both shrinking when an option is switched off, strength tracking settings, the animation settling on the final password, the copy confirmation clearing itself |
+| Instrumented tests | `MainScreenTest` | Password / length / options rendering, copy and refresh callbacks, option-row callbacks, theme-button callbacks |
 
-### 7.2 手工验收清单
+### 7.2 Manual checklist
 
-1. 冷启动即显示 20 位密码，强度为 Very strong，说明行显示 129 bits。
-2. 点击刷新：可见约 0.3 秒的逐位定稿动画，结束后密码稳定。
-3. 拖动长度至 6：强度降为 Weak，破解时长显示为极短的量级。
-4. 关闭全部四个字符集：密码变为纯小写，不出现空白或崩溃。
-5. 打开"排除形近字符"：新密码中不含 `l 1 I O 0 o B 8 S 5 Z 2`。
-6. 点击复制：按钮变为"Copied ✓"，有触感反馈，约 1.6 秒后复原；在其他应用可粘贴。
-7. 复制后点击刷新：按钮文案立即回到"Copy password"。
-8. 切换主题：全屏配色与系统栏同步变化；旋转屏幕后保持。
-9. 在系统设置中查看应用权限：显示"未请求任何权限"。
+1. Cold start shows a 20-character password, Very strong, 129 bits.
+2. Tap refresh: roughly 0.3 s of left-to-right settling, then a stable password.
+3. Drag length to 6: strength drops to Weak and the crack time falls to a very short duration.
+4. Switch off all four sets: the password becomes lowercase only — no blank, no crash.
+5. Turn on *Avoid look-alikes*: new passwords contain none of `l 1 I O 0 o B 8 S 5 Z 2`.
+6. Tap copy: the label becomes "Copied ✓" with haptic feedback, reverting after about 1.6 s; the password pastes in another app.
+7. Tap refresh after copying: the label returns to "Copy password" immediately.
+8. Switch themes: colours and system bars follow; the choice survives rotation.
+9. Check app permissions in system settings: no permissions requested.
 
 ---
 
-## 8. 已知问题与取舍
+## 8. Trade-offs and known issues
 
-### 8.1 产品取舍（有意为之）
+### 8.1 Deliberate trade-offs
 
-- **不保证每类字符至少出现一次。** 生成为逐位独立均匀采样，因此启用数字后仍可能生成不含数字的密码。这样做保持了熵公式的严格成立（强制包含会降低实际熵并使展示值失真），代价是少数强制字符类要求的网站可能需要用户多刷新一次。
-- **不保存用户设置。** 每次冷启动回到 20 位默认配置。取舍在于"零存储"这一隐私姿态的完整性；若后续要保存，需要在隐私文案中明确说明写入了什么。
-- **不保留密码历史。** 历史意味着密码要落盘或长期驻留内存，与产品定位冲突。
+- **No guarantee that every enabled class appears.** Each position is sampled independently and uniformly, so enabling digits does not guarantee a digit. This keeps the entropy formula exactly true — forcing one character per class lowers real entropy and makes the displayed figure wrong — at the cost of an extra refresh on sites that mandate character classes.
+- **Settings are not saved.** Every cold start returns to 20 characters and the default sets. The trade is for a complete zero-storage posture; saving them later means saying in the privacy copy what gets written.
+- **No password history.** History means passwords on disk or resident in memory, which contradicts the positioning.
 
-### 8.2 待修复的实现瑕疵
+### 8.2 Defects to fix
 
-| 编号 | 现象 | 影响 |
+| ID | Symptom | Impact |
 | --- | --- | --- |
-| BUG-1 | 破解时长的单复数依据四舍五入后的整数判断，导致带小数的 `1.1 month`（59 bits）被当作 1 而不加 `s`，应为 `1.1 months`。 | 文案观感，无功能影响 |
-| BUG-2 | 破解时长与档位文案为英文硬拼，未走 `strings.xml`，无法本地化。 | 阻塞多语言 |
-| BUG-3 | 长度滑块为自定义手势实现，未提供 `setProgress` 语义动作，TalkBack 用户无法通过无障碍手势调节长度。 | 无障碍 |
+| BUG-1 | Crack-time pluralisation keys off the rounded integer, so a fractional value like 59 bits renders `1.1 month` instead of `1.1 months`. | Cosmetic |
+| BUG-2 | Duration and tier strings are assembled in Kotlin rather than `strings.xml`. | Blocks localisation |
+| BUG-3 | The custom length slider exposes no `setProgress` semantics, so TalkBack users cannot adjust the length. | Accessibility |
 
 ---
 
-## 9. 后续规划（未排期）
+## 9. Roadmap (unscheduled)
 
-| 优先级 | 需求 | 说明 |
+| Priority | Item | Notes |
 | --- | --- | --- |
-| P1 | 修复 BUG-1 / BUG-2 / BUG-3 | 文案与无障碍质量 |
-| P1 | 中文等多语言 | 字符串资源已就绪，需翻译与时长模板化 |
-| P2 | "每类字符至少一个"可选开关 | 需同步调整熵展示口径并在 UI 说明 |
-| P2 | 记住上次的长度与字符集 | 需要引入本地存储，须同步更新隐私说明 |
-| P3 | 口令短语模式（词表拼接） | 面向需要口述/记忆的场景 |
-| P3 | 剪贴板超时自动清除 | Android 各版本行为差异较大，需先验证可行性 |
+| P1 | Fix BUG-1 / BUG-2 / BUG-3 | Copy quality and accessibility |
+| P1 | Localisation, starting with Chinese | Strings are extracted; durations need templating |
+| P2 | Optional "at least one of each class" | Requires restating how entropy is presented |
+| P2 | Remember the last length and character sets | Introduces local storage; the privacy copy must follow |
+| P3 | Passphrase mode (word lists) | For passwords that get spoken or memorised |
+| P3 | Clear the clipboard after a timeout | Behaviour varies by Android version; needs feasibility work first |
 
 ---
 
-## 10. 附录：核心公式
+## 10. Appendix: the formulas
 
 ```
-poolSize = |启用字符集之并集 − （若开启）形近字符集|      // 全关时回退为小写 26
-entropy  = round(length × log2(poolSize))                 // bits
-seconds  = 2^(entropy − 1) / 1e11                         // 10¹¹ 次/秒穷举一半密钥空间
+poolSize = |union of enabled sets − look-alikes (when enabled)|   // 26 lowercase when all sets are off
+entropy  = round(length × log2(poolSize))                          // bits
+seconds  = 2^(entropy − 1) / 1e11                                  // half the keyspace at 10^11 guesses/second
 strength = entropy < 45 ? Weak : entropy < 65 ? Fair : entropy < 90 ? Strong : Very strong
 ```
