@@ -8,6 +8,8 @@ A fully offline random password generator for Android. Written in Kotlin and Jet
 
 > **🤖 This project is 100% AI-written.** The app code, the tests, the visual design, the store assets and this README were all produced by Claude; the human side was limited to asking for things and signing off on them. See [About "entirely AI-written"](#about-entirely-ai-written).
 
+> **Product requirements:** [`docs/PRD.md`](docs/PRD.md) documents the shipped v1.0 behaviour — character sets, strength math, state model, acceptance criteria and known issues.
+
 ---
 
 ## What it does
